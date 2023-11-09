@@ -3,6 +3,30 @@ import sys
 
 MAX_NUMBER=32767
 MODULO = REGOFFSET = MAX_NUMBER + 1
+OPDEFS = [
+    {"name":"halt", "args":0},
+    {"name":"set", "args":2},
+    {"name":"push", "args":1},
+    {"name":"pop", "args":1},
+    {"name":"eq", "args":3},
+    {"name":"gt", "args":3},
+    {"name":"jmp", "args":1},
+    {"name":"jt", "args":2},
+    {"name":"jf", "args":2},
+    {"name":"add", "args":3},
+    {"name":"mult", "args":3},
+    {"name":"mod", "args":3},
+    {"name":"and", "args":3},
+    {"name":"or", "args":3},
+    {"name":"not", "args":2},
+    {"name":"rmem", "args":2},
+    {"name":"wmem", "args":2},
+    {"name":"call", "args":1},
+    {"name":"ret", "args":0},
+    {"name":"out", "args":1},
+    {"name":"in", "args":1},
+    {"name":"noop", "args":0}
+]
 
 def process(file: str) -> array:
     with open(file, "rb") as f:
@@ -16,11 +40,27 @@ class VM:
         self.__registers = array("H",[0]*8)
         self.__stack = []
         self.__input_buffer = []
+        self.__log = open("./out.log", "w")
+        self.__loglevel = 2
+
+    def __del__(self):
+        print("Shutting down VM")
+        self.__log.close()
     
     def run(self, ptr = 0):
         self.__ptr = ptr
         while True:
             self.__ptr = self.__run_instruction(self.__ptr)
+
+    def log(self, msg:str, level:int=0):
+        if level >= self.__loglevel and len(msg) > 0:
+            self.__log.write(f"{msg}\n")
+
+    def log_instruction(self, address:int, msg:str=''):
+        self.log(f"{address}: {OPDEFS[self.__memory[address]]['name']}", 1)
+        self.log(f"\t{msg}",1)
+        self.log(f"\tSTACK: {self.__stack}", 0)
+        self.log(f"\tREG: {self.__registers}", 0)
 
     def memory(self, address:int):
         value = self.__memory[address]
@@ -43,6 +83,7 @@ class VM:
 
     def __run_instruction(self, address:int):
         op = self.__memory[address]
+        self.log_instruction(address)
         match(op):
             case 0:  # halt: 0
                 # stop execution and terminate the program
@@ -157,30 +198,7 @@ class VM:
                 assert("panic")
 
 def disassemble(data, outfile):
-    ops = [
-        {"name":"halt", "args":0},
-        {"name":"set", "args":2},
-        {"name":"push", "args":1},
-        {"name":"pop", "args":1},
-        {"name":"eq", "args":3},
-        {"name":"gt", "args":3},
-        {"name":"jmp", "args":1},
-        {"name":"jt", "args":2},
-        {"name":"jf", "args":2},
-        {"name":"add", "args":3},
-        {"name":"mult", "args":3},
-        {"name":"mod", "args":3},
-        {"name":"and", "args":3},
-        {"name":"or", "args":3},
-        {"name":"not", "args":2},
-        {"name":"rmem", "args":2},
-        {"name":"wmem", "args":2},
-        {"name":"call", "args":1},
-        {"name":"ret", "args":0},
-        {"name":"out", "args":1},
-        {"name":"in", "args":1},
-        {"name":"noop", "args":0}
-    ]
+
     with open(outfile, "w") as f:
         end = len(data)
         i = 0
@@ -188,7 +206,7 @@ def disassemble(data, outfile):
             opidx = data[i]
             i += 1
             if opidx <= 21:
-                op = ops[opidx]
+                op = OPDEFS[opidx]
                 f.write(f"{i-1}: {op['name']}")
                 for j in range(op['args']):
                     arg = data[i]
