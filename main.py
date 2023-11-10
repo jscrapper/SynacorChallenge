@@ -34,18 +34,26 @@ def process(file: str) -> array:
     return data
 
 class VM:
-    def __init__(self, data: array):
+    def __init__(self, data: array, resume:bool=False):
         self.__memory = data
         self.__ptr = 0
         self.__registers = array("H",[0]*8)
         self.__stack = []
         self.__input_buffer = []
         self.__log = open("./out.log", "w")
-        self.__loglevel = 2
+        self.__loglevel = 1
+        if resume:
+            with open("./input.replay") as f:
+                saved_input = f.read()
+            self.__input_buffer = [ord(x) for x in saved_input]
+        else:
+            self.__input_record = open("./input.replay", "w")
 
     def __del__(self):
         print("Shutting down VM")
         self.__log.close()
+        if hasattr(self, '__input_record'):
+            self.__input_record.close()
     
     def run(self, ptr = 0):
         self.__ptr = ptr
@@ -58,7 +66,8 @@ class VM:
 
     def log_instruction(self, address:int, msg:str=''):
         self.log(f"{address}: {OPDEFS[self.__memory[address]]['name']}", 1)
-        self.log(f"\t{msg}",1)
+        if len(msg) > 0:
+            self.log(f"\t{msg}",1)
         self.log(f"\tSTACK: {self.__stack}", 0)
         self.log(f"\tREG: {self.__registers}", 0)
 
@@ -78,7 +87,15 @@ class VM:
 
     def get_input(self):
         if len(self.__input_buffer) == 0:
-            self.__input_buffer = [ord(x) for x in f'{input("-> ")}\n']
+            word = f'{input("-> ")}\n'
+            w = word.split()
+            if len(w) == 3 and w[0] == 'setreg':
+                self.set_register(int(w[1]),int(w[2]))
+                self.log(f"HACK: Write {w[2]} to register {w[1]}", 2)
+                return self.get_input()
+            if hasattr(self,'__input_record'):
+                self.__input_record.write(word)
+            self.__input_buffer = [ord(x) for x in word]
         return self.__input_buffer.pop(0)
 
     def __run_instruction(self, address:int):
@@ -224,5 +241,5 @@ def disassemble(data, outfile):
 data = process("./challenge.bin")
 # disassemble(data, "./challenge.asm")
 # testdata = array("H", [9,32768,32769,4,19,32768])
-vm = VM(data)
+vm = VM(data,True)
 vm.run()
