@@ -41,7 +41,7 @@ class VM:
         self.__stack = []
         self.__input_buffer = []
         self.__log = open("./out.log", "w")
-        self.__loglevel = 1
+        self.__loglevel = 2
         if resume:
             with open("./input.replay") as f:
                 saved_input = f.read()
@@ -64,12 +64,27 @@ class VM:
         if level >= self.__loglevel and len(msg) > 0:
             self.__log.write(f"{msg}\n")
 
-    def log_instruction(self, address:int, msg:str=''):
-        self.log(f"{address}: {OPDEFS[self.__memory[address]]['name']}", 1)
-        if len(msg) > 0:
-            self.log(f"\t{msg}",1)
-        self.log(f"\tSTACK: {self.__stack}", 0)
-        self.log(f"\tREG: {self.__registers}", 0)
+    def log_instruction(self, address:int):
+        def fmt_mem(ptr):
+            v = self.__memory[address+i]
+            return f"${v - REGOFFSET} [{self.memory(ptr)}]" if v > MAX_NUMBER else f"{v}"
+
+        op = OPDEFS[self.__memory[address]]
+        logout = f"{address}: {op['name']}"
+        for i in range(1,op['args']+1):
+            arg = self.__memory[address+i]
+            # val = arg-REGOFFSET if arg > MAX_NUMBER else arg
+            argstr = fmt_mem(address+i)
+            mem = self.memory(address+i)
+            if op['name'] == 'out' and 32 <= mem <= 126:
+                argstr += f" #'{chr(mem)}'"
+            if op['name'] == 'call':
+                argstr += f" **push [{fmt_mem(address+i+1)}]**"
+            logout += f" ({argstr})"
+        if self.__loglevel < 1:
+            logout += f"\n\tSTACK: {self.__stack}"
+            logout += f"\n\tREG: {self.__registers}"
+        self.log(logout, 1)
 
     def memory(self, address:int):
         value = self.__memory[address]
@@ -92,6 +107,10 @@ class VM:
             if len(w) == 3 and w[0] == 'setreg':
                 self.set_register(int(w[1]),int(w[2]))
                 self.log(f"HACK: Write {w[2]} to register {w[1]}", 2)
+                return self.get_input()
+            if len(w) == 2 and w[0] == "loglevel":
+                self.__loglevel = int(w[1])
+                self.log(f"HACK: Set Log level to {w[1]}", 2)
                 return self.get_input()
             if hasattr(self,'__input_record'):
                 self.__input_record.write(word)
