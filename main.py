@@ -1,5 +1,6 @@
 from array import array
 import sys
+from teleporter import Teleporter
 
 MAX_NUMBER=32767
 MODULO = REGOFFSET = MAX_NUMBER + 1
@@ -44,8 +45,8 @@ class VM:
         self.__loglevel = 2
         if resume:
             with open("./input.replay") as f:
-                saved_input = f.read()
-            self.__input_buffer = [ord(x) for x in saved_input]
+                replay = f.read()
+            self.__input_replay = replay.split('\n')
         else:
             self.__input_record = open("./input.replay", "w")
 
@@ -102,7 +103,10 @@ class VM:
 
     def get_input(self):
         if len(self.__input_buffer) == 0:
-            word = f'{input("-> ")}\n'
+            if len(self.__input_replay) > 0:
+                word = f"{self.__input_replay.pop(0)}\n"
+            else:
+                word = f'{input("-> ")}\n'
             w = word.split()
             if len(w) == 3 and w[0] == 'setreg':
                 self.set_register(int(w[1]),int(w[2]))
@@ -111,6 +115,20 @@ class VM:
             if len(w) == 2 and w[0] == "loglevel":
                 self.__loglevel = int(w[1])
                 self.log(f"HACK: Set Log level to {w[1]}", 2)
+                return self.get_input()
+            if len(w) == 1 and w[0] == "dump":
+                disassemble(self.__memory, "./dump.log")
+                self.log(f"HACK: Dumping memory state to log",2)
+                return self.get_input()
+            if len(w) == 1 and w[0] == 'hacktel':
+                self.log(f"HACK: Finding teleporter magic number... ")
+                tval = Teleporter().solve()
+                self.log(f"HACK: writing {tval} to register 7... ")
+                self.set_register(7,tval)
+                self.log(f"HACK: Skipping teleporter validation ...")
+                self.__memory[5489] = 21 #nop
+                self.__memory[5490] = 21 #nop
+                self.__memory[5495] = 7  #jt
                 return self.get_input()
             if hasattr(self,'__input_record'):
                 self.__input_record.write(word)
