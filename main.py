@@ -107,6 +107,7 @@ class VM:
                 word = f"{self.__input_replay.pop(0)}\n"
             else:
                 word = f'{input("-> ")}\n'
+            print(word)
             w = word.split()
             if len(w) == 3 and w[0] == 'setreg':
                 self.set_register(int(w[1]),int(w[2]))
